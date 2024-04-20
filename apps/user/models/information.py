@@ -17,13 +17,12 @@ class UserInformationModel(models.Model):
                               null=False, 
                               unique=True)
     
-    user_type = models.CharField(   max_length= 255,
-                                    choices=UserRanges.choices,
-                                    default=UserRanges.CLIENT,
-                                    verbose_name=_('Tipo de usuario'),
-                                    help_text='Seleccione un tipo de usuario',
-                                    blank=False,
-                                    null=False)
+    user_type = models.CharField(max_length= 255,
+                                 choices=UserRanges.choices,
+                                 verbose_name=_('Tipo de usuario'),
+                                 help_text='Seleccione un tipo de usuario',
+                                 blank=False,
+                                 null=False)
 
     def __str__(self) -> str:
         return str(self.user) 
