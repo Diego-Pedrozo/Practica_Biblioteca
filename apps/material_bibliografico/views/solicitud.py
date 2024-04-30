@@ -1,6 +1,6 @@
 from rest_framework.viewsets import ModelViewSet
-from apps.material_bibliografico.models.solicitud import SolicitudModel
-from apps.material_bibliografico.serializers.solicitud import SolicitudSerializer, SolicitudStatusUpdateSerializer
+from apps.material_bibliografico.models.solicitud import SolicitudModel, LibroModel
+from apps.material_bibliografico.serializers.solicitud import SolicitudSerializer, SolicitudCreateSerializer, SolicitudStatusUpdateSerializer, LibroSerializer
 
 from django.contrib.auth.models import User
 from apps.user.models.information import UserInformationModel
@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.response import Response
+from rest_framework.decorators import action
 # from datetime import date, datetime
 # from django.db.models import Q
 
@@ -22,17 +23,27 @@ class SolicitudPublicViewSet(ModelViewSet):
     def create(self, request, *args, **kwargs):
         print(self.action)
         try:
-            data_solicitud = request.data
-            serializer_solicitud = SolicitudSerializer(data=data_solicitud)
+            data= request.data
+            data_libro = data.get('libro', {})
+            data_solicitud = data.get('solicitud', {})
+
+            serializer_libro = LibroSerializer(data=data_libro)
+            if serializer_libro.is_valid():
+                libro = serializer_libro.save()
+
+            data_solicitud['libro'] = libro.id
+            serializer_solicitud = SolicitudCreateSerializer(data=data_solicitud)
 
             if serializer_solicitud.is_valid():
                 solicitud = serializer_solicitud.save()
                 return Response({'mensaje': 'Solicitud creada'}, status=status.HTTP_201_CREATED)
             
             else:
+                libro.delete()
                 return Response({'mensaje': 'Error de solicitud', 'info': serializer_solicitud.errors}, status=status.HTTP_400_BAD_REQUEST)
         
         except Exception as e:
+            libro.delete()
             return Response({'mensaje': {str(e)}}, status=status.HTTP_400_BAD_REQUEST)
 
 class SolicitudViewSet(ModelViewSet):
@@ -40,7 +51,7 @@ class SolicitudViewSet(ModelViewSet):
     serializer_class = SolicitudSerializer
     queryset = SolicitudModel.objects.all()    
     permission_classes = [IsAuthenticated]
-    http_method_names = ['patch', 'delete']
+    http_method_names = ['patch', 'delete', 'post']
     
     def partial_update(self, request, *args, **kwargs):
         print(self.action)
@@ -69,9 +80,48 @@ class SolicitudViewSet(ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         print(self.action)
         instance = self.get_object()
+
+        try:
+            libro = instance.libro
+        except LibroModel.DoesNotExist:
+            libro = None
         
-        id_solicitud = instance.id
-        SolicitudModel.objects.filter(id=id_solicitud).delete()
+        if libro:
+            libro.delete()
+        
+        instance.delete()
 
         return Response({'mensaje': 'Solicitud eliminada'}, status=status.HTTP_200_OK)
+    
+    
+    @action(detail=False, methods=['post'], url_path='enviar_solicitudes')
+    def solicitudesSeleccionadas(self, request):
+        print('solicitudesSeleccionadas()') 
+        data = self.request.data
+
+        user = self.request.user
+        user_information = UserInformationModel.objects.get(user=user)
+
+        ids_solicitudes = data.get('ids_solicitudes', [])
+        if not ids_solicitudes:
+            return Response({'mensaje': 'Se requiere al menos un ID de solicitud'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if user_information.user_type in ['2', '3']:
+            solicitudes_a_actualizar = SolicitudModel.objects.filter(id__in=ids_solicitudes, nivel_revision='1').values_list('id', flat=True)
+            nuevo_nivel_revision = '2'
+        elif user_information.user_type in ['4']:
+            solicitudes_a_actualizar = SolicitudModel.objects.filter(id__in=ids_solicitudes, nivel_revision='2').values_list('id', flat=True)
+            nuevo_nivel_revision = '3'
+        elif user_information.user_type in ['5']:
+            solicitudes_a_actualizar = SolicitudModel.objects.filter(id__in=ids_solicitudes, nivel_revision='3').values_list('id', flat=True)
+            nuevo_nivel_revision = '4'
+        else: nuevo_nivel_revision = None
+            
+        if nuevo_nivel_revision is None:
+            return Response({'mensaje': 'Se requiere el nuevo valor de nivel_revision'}, status=status.HTTP_400_BAD_REQUEST)
+
+        solicitudes_a_actualizar = SolicitudModel.objects.filter(id__in=solicitudes_a_actualizar)
+        solicitudes_a_actualizar.update(nivel_revision=nuevo_nivel_revision)
+
+        return Response({'mensaje': 'Actualización masiva completada'}, status=status.HTTP_200_OK)
 
