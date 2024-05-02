@@ -50,7 +50,8 @@ class SolicitudModel(models.Model):
         ('1', '1'),
         ('2', '2'),
         ('3', '3'),
-        ('4', '4')
+        ('4', '4'),
+        ('5', '5')
     ]
     nivel_revision = models.CharField(max_length=50, verbose_name=_('Nivel de revisión'), help_text=_(''), choices=NIVEL_CHOICES, default='1', null=False, unique=False)
 

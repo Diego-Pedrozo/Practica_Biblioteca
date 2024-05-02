@@ -51,7 +51,52 @@ class SolicitudViewSet(ModelViewSet):
     serializer_class = SolicitudSerializer
     queryset = SolicitudModel.objects.all()    
     permission_classes = [IsAuthenticated]
-    http_method_names = ['patch', 'delete', 'post']
+    http_method_names = ['get', 'patch', 'delete', 'post']
+
+    def list(self, request, *args, **kwargs):
+        print(self.action)
+        user = self.request.user
+        user_information = UserInformationModel.objects.get(user=user)
+
+        if user_information.user_type in ['2', '3']:
+            print('Director')
+            queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision=1))
+        elif user_information.user_type in ['4']:
+            print('Decano')
+            queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision=2))
+        elif user_information.user_type in ['5']:
+            print('Bliblioteca')
+            queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision=3))
+        elif user_information.user_type in ['6']:
+            print('Vicerrector')
+            queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision=4))
+        else: return Response({'mensaje': 'No tiene permisos para ver solicitudes'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer_solicitud = self.get_serializer(queryset, many=True)
+        return Response(serializer_solicitud.data)
+    
+    @action(detail=False, methods=['get'], url_path='solicitudes_revisadas')
+    def solicitudesRevisadas(self, request, *args, **kwargs):
+        print('solicitudesRevisadas()')
+        user = self.request.user
+        user_information = UserInformationModel.objects.get(user=user)
+
+        if user_information.user_type in ['2', '3']:
+            print('Director')
+            queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[2,3,4,5]))
+        elif user_information.user_type in ['4']:
+            print('Decano')
+            queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[3,4,5]))
+        elif user_information.user_type in ['5']:
+            print('Bliblioteca')
+            queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[4,5]))
+        elif user_information.user_type in ['6']:
+            print('Vicerrector')
+            queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[5]))
+        else: return Response({'mensaje': 'No tiene permisos para ver solicitudes'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer_solicitud = self.get_serializer(queryset, many=True)
+        return Response(serializer_solicitud.data)
     
     def partial_update(self, request, *args, **kwargs):
         print(self.action)
@@ -115,6 +160,9 @@ class SolicitudViewSet(ModelViewSet):
         elif user_information.user_type in ['5']:
             solicitudes_a_actualizar = SolicitudModel.objects.filter(id__in=ids_solicitudes, nivel_revision='3').values_list('id', flat=True)
             nuevo_nivel_revision = '4'
+        elif user_information.user_type in ['6']:
+            solicitudes_a_actualizar = SolicitudModel.objects.filter(id__in=ids_solicitudes, nivel_revision='4').values_list('id', flat=True)
+            nuevo_nivel_revision = '5'
         else: nuevo_nivel_revision = None
             
         if nuevo_nivel_revision is None:
