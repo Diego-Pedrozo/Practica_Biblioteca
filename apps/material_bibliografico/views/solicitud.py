@@ -172,4 +172,34 @@ class SolicitudViewSet(ModelViewSet):
         solicitudes_a_actualizar.update(nivel_revision=nuevo_nivel_revision)
 
         return Response({'mensaje': 'Actualización masiva completada'}, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['post'], url_path='rechazar_solicitudes')
+    def solicitudesRechazadas(self, request):
+        print('solicitudesRechazadas()') 
+        data = self.request.data
+
+        user = self.request.user
+        user_information = UserInformationModel.objects.get(user=user)
+
+        ids_solicitudes = data.get('ids_solicitudes', [])
+        if not ids_solicitudes:
+            return Response({'mensaje': 'Se requiere al menos un ID de solicitud'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if user_information.user_type not in ['6']:
+                return Response({'mensaje': 'No tiene permisos para cambiar el estado de la solicitud'}, status=status.HTTP_403_FORBIDDEN)
+
+        
+        solicitudes_a_actualizar = SolicitudModel.objects.filter(id__in=ids_solicitudes, nivel_revision='4').values_list('id', flat=True)
+        nuevo_nivel_revision = '6'
+            
+        if nuevo_nivel_revision is None:
+            return Response({'mensaje': 'Se requiere el nuevo valor de nivel_revision'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not solicitudes_a_actualizar:
+            return Response({'mensaje': 'No hay solicitudes para actualizar'}, status=status.HTTP_400_BAD_REQUEST)
+
+        solicitudes_a_actualizar = SolicitudModel.objects.filter(id__in=solicitudes_a_actualizar)
+        solicitudes_a_actualizar.update(nivel_revision=nuevo_nivel_revision)
+
+        return Response({'mensaje': 'Actualización masiva completada'}, status=status.HTTP_200_OK)
 

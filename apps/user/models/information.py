@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils.translation import gettext as _
-from apps.user.choices import UserRanges
+from apps.user.choices import UserRanges, UserFacultad, UserPrograma
 
 class UserInformationModel(models.Model):
     user = models.OneToOneField(User, 
@@ -23,6 +23,20 @@ class UserInformationModel(models.Model):
                                  help_text='Seleccione un tipo de usuario',
                                  blank=False,
                                  null=False)
+    
+    user_facultad = models.CharField(max_length= 255,
+                                 choices=UserFacultad.choices,
+                                 verbose_name=_('Facultad'),
+                                 help_text='Seleccione una facultad',
+                                 blank=True,
+                                 null=True)
+    
+    user_programa = models.CharField(max_length= 255,
+                                 choices=UserPrograma.choices,
+                                 verbose_name=_('Programa academico'),
+                                 help_text='Seleccione un programa academico',
+                                 blank=True,
+                                 null=True)
 
     def __str__(self) -> str:
         return str(self.user) 

@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework import routers
 from apps.material_bibliografico.views.solicitud import SolicitudViewSet, SolicitudPublicViewSet
 from apps.material_bibliografico.views.publicacion import PublicacionPublicViewSet, PublicacionViewSet
+from apps.material_bibliografico.views.notificacion import NotificacionViewSet
 
 app_name = 'material_bibliografico'
 router = routers.DefaultRouter()
@@ -10,6 +11,7 @@ router.register(viewset=SolicitudViewSet, prefix='solicitud', basename='solicitu
 router.register(viewset=SolicitudPublicViewSet, prefix='solicitud_public', basename='solicitud_public')
 router.register(viewset=PublicacionViewSet, prefix='publicacion', basename='publicacion')
 router.register(viewset=PublicacionPublicViewSet, prefix='publicacion_public', basename='publicacion_public')
+router.register(viewset=NotificacionViewSet, prefix='notificacion', basename='notificacion')
 
 
 urlpatterns = [
