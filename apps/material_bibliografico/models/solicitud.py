@@ -2,6 +2,7 @@ from django.db import models
 from django.utils.translation import gettext as _
 from django.contrib.auth.models import User
 from datetime import date
+from apps.user.choices import UserRanges, UserFacultad, UserPrograma
 
 class LibroModel(models.Model):
     #info libro
@@ -29,8 +30,8 @@ class SolicitudModel(models.Model):
     #info solicitud
     libro = models.ForeignKey(LibroModel, verbose_name=_("Libro"), on_delete=models.CASCADE, null=False, unique=False, related_name='libro')
     fecha_solicitud = models.DateField(max_length=50, verbose_name=_('Fecha de solicitud'), help_text=_(''), null=False, unique=False, default=date.today)
-    facultad = models.CharField(max_length=50, verbose_name=_('Facultad'), help_text=_(''), null=False, unique=False)
-    programa_academico = models.CharField(max_length=50, verbose_name=_('Programa académico'), help_text=_(''), null=False, unique=False)
+    facultad = models.CharField(max_length=300, verbose_name=_('Facultad'), help_text=_(''), choices=UserFacultad.choices, null=False, unique=False)
+    programa_academico = models.CharField(max_length=300, verbose_name=_('Programa académico'), help_text=_(''), choices=UserPrograma.choices, null=False, unique=False)
     anotacion = models.CharField(max_length=300, verbose_name=_('Anotación'), help_text=_(''), null=False, default='No aplica', unique=False, blank= True)
     SOLICITANTE_CHOICES = [
         ('Estudiante', 'Estudiante'),
