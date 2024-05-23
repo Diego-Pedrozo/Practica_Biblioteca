@@ -9,6 +9,13 @@ class UserRanges(models.TextChoices):
     BIBLIOTECA = 5, _('Biblioteca')
     VICERRECTOR = 6, _('Vicerrector')
 
+    @classmethod
+    def get_name(cls, value):
+        for choice in cls.choices:
+            if choice[0] == value:
+                return choice[1]
+        return None
+
 class UserFacultad(models.TextChoices):
     CIENCIAS_AGRARIAS_AMBIENTE = 1, _('Ciencias Agrarias y del Ambiente') # Ingeniería Agroindustrial, Ingeniería Agronómica, Ingeniería Ambiental, Ingeniería Biotecnológica, Zootecnia 
     CIENCIAS_BASICAS = 2, _('Ciencias Básicas') #Química Industrial
@@ -16,6 +23,13 @@ class UserFacultad(models.TextChoices):
     CIENCIAS_DE_SALUD = 4, _('Ciencias de salud') #Enfermería, Seguridad y Salud en el Trabajo 
     EDUCACION_ARTES_HUMANIDADES = 5, _('Educación, Artes y Humanidades') #Comunicación Social, Trabajo Social, Derecho, Arquitectura
     INGENIERIA = 6, _('Ingeniería') #Ingeniería Civil, Ingeniería de Sistemas, Ingeniería Electrónica, Ingeniería Electromecánica, Ingeniería Industrial, Ingeniería de Minas, Ingeniería Mecánica
+
+    @classmethod
+    def get_name(cls, value):
+        for choice in cls.choices:
+            if choice[0] == value:
+                return choice[1]
+        return None
 
 class UserPrograma(models.TextChoices):
     ING_AGROINDUSTRIAL = 1, _('Ingeniería Agroindustrial')
@@ -40,4 +54,11 @@ class UserPrograma(models.TextChoices):
     ING_INDUSTRIAL = 20, _('Ingeniería Industrial')
     ING_MINAS = 21, _('Ingeniería de Minas')
     ING_MECANICA = 22, _('Ingeniería Mecánica')#
+
+    @classmethod
+    def get_name(cls, value):
+        for choice in cls.choices:
+            if choice[0] == value:
+                return choice[1]
+        return None
     

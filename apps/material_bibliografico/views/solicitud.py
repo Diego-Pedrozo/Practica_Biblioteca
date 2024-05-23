@@ -58,19 +58,39 @@ class SolicitudViewSet(ModelViewSet):
         user = self.request.user
         user_information = UserInformationModel.objects.get(user=user)
 
+        queryset = self.filter_queryset(self.get_queryset())
+
         if user_information.user_type in ['2', '3']:
             print('Director')
-            queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision=1))
+            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision=1))
+            queryset = queryset.filter(nivel_revision=1)
         elif user_information.user_type in ['4']:
             print('Decano')
-            queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision=2))
+            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision=2))
+            queryset = queryset.filter(nivel_revision=2)
         elif user_information.user_type in ['5']:
-            print('Bliblioteca')
-            queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision=3))
+            print('Biblioteca')
+            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision=3))
+            queryset = queryset.filter(nivel_revision=3)
         elif user_information.user_type in ['6']:
             print('Vicerrector')
-            queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision=4))
+            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision=4))
+            queryset = queryset.filter(nivel_revision=4)
         else: return Response({'mensaje': 'No tiene permisos para ver solicitudes'}, status=status.HTTP_403_FORBIDDEN)
+
+        facultad = request.query_params.get('facultad', None)
+        programa = request.query_params.get('programa', None)
+        estado = request.query_params.get('estado', None)
+        nivel_revision = request.query_params.get('nivel_revision', None)
+
+        if facultad:
+            queryset = queryset.filter(facultad=facultad)
+        if programa:
+            queryset = queryset.filter(programa_academico=programa)
+        if estado:
+            queryset = queryset.filter(estado=estado)
+        if nivel_revision:
+            queryset = queryset.filter(nivel_revision=nivel_revision)
 
         serializer_solicitud = self.get_serializer(queryset, many=True)
         return Response(serializer_solicitud.data)
@@ -81,19 +101,39 @@ class SolicitudViewSet(ModelViewSet):
         user = self.request.user
         user_information = UserInformationModel.objects.get(user=user)
 
+        queryset = self.filter_queryset(self.get_queryset())
+
         if user_information.user_type in ['2', '3']:
             print('Director')
-            queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[2,3,4,5]))
+            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[2,3,4,5]))
+            queryset = queryset.filter(nivel_revision__in=[2,3,4,5])
         elif user_information.user_type in ['4']:
             print('Decano')
-            queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[3,4,5]))
+            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[3,4,5]))
+            queryset = queryset.filter(nivel_revision__in=[3,4,5])
         elif user_information.user_type in ['5']:
-            print('Bliblioteca')
-            queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[4,5]))
+            print('Biblioteca')
+            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[5,6]))
+            queryset = queryset.filter(nivel_revision__in=[5,6])
         elif user_information.user_type in ['6']:
             print('Vicerrector')
-            queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[5]))
+            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[5,6]))
+            queryset = queryset.filter(nivel_revision__in=[5,6])
         else: return Response({'mensaje': 'No tiene permisos para ver solicitudes'}, status=status.HTTP_403_FORBIDDEN)
+
+        facultad = request.query_params.get('facultad', None)
+        programa = request.query_params.get('programa', None)
+        estado = request.query_params.get('estado', None)
+        nivel_revision = request.query_params.get('nivel_revision', None)
+
+        if facultad:
+            queryset = queryset.filter(facultad=facultad)
+        if programa:
+            queryset = queryset.filter(programa_academico=programa)
+        if estado:
+            queryset = queryset.filter(estado=estado)
+        if nivel_revision:
+            queryset = queryset.filter(nivel_revision=nivel_revision)
 
         serializer_solicitud = self.get_serializer(queryset, many=True)
         return Response(serializer_solicitud.data)
