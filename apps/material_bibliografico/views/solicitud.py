@@ -60,10 +60,14 @@ class SolicitudViewSet(ModelViewSet):
 
         queryset = self.filter_queryset(self.get_queryset())
 
-        if user_information.user_type in ['2', '3']:
-            print('Director')
+        if user_information.user_type in ['2']:
+            print('Director plan de estudios')
             #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision=1))
-            queryset = queryset.filter(nivel_revision=1)
+            queryset = queryset.filter(nivel_revision=1, solicitante='Estudiante')
+        elif user_information.user_type in ['3']:
+            print('Director de departamento')
+            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision=1))
+            queryset = queryset.filter(nivel_revision=1, solicitante='Docente')
         elif user_information.user_type in ['4']:
             print('Decano')
             #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision=2))
@@ -102,29 +106,65 @@ class SolicitudViewSet(ModelViewSet):
         user_information = UserInformationModel.objects.get(user=user)
 
         queryset = self.filter_queryset(self.get_queryset())
-
-        if user_information.user_type in ['2', '3']:
-            print('Director')
-            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[2,3,4,5]))
-            queryset = queryset.filter(nivel_revision__in=[2,3,4,5])
-        elif user_information.user_type in ['4']:
-            print('Decano')
-            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[3,4,5]))
-            queryset = queryset.filter(nivel_revision__in=[3,4,5])
-        elif user_information.user_type in ['5']:
-            print('Biblioteca')
-            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[5,6]))
-            queryset = queryset.filter(nivel_revision__in=[5,6])
-        elif user_information.user_type in ['6']:
-            print('Vicerrector')
-            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[5,6]))
-            queryset = queryset.filter(nivel_revision__in=[5,6])
-        else: return Response({'mensaje': 'No tiene permisos para ver solicitudes'}, status=status.HTTP_403_FORBIDDEN)
-
         facultad = request.query_params.get('facultad', None)
         programa = request.query_params.get('programa', None)
         estado = request.query_params.get('estado', None)
         nivel_revision = request.query_params.get('nivel_revision', None)
+
+        if user_information.user_type in ['2']:
+            print('Director plan de estudios')
+            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[2,3,4,5]))
+            if nivel_revision == '1':
+                queryset = queryset.filter(nivel_revision__in=[1], solicitante='Estudiante')
+            elif nivel_revision == '2':
+                queryset = queryset.filter(nivel_revision__in=[2,3,4], solicitante='Estudiante')
+            elif nivel_revision == '5':
+                queryset = queryset.filter(nivel_revision__in=[5], solicitante='Estudiante')
+            elif nivel_revision == '6':
+                queryset = queryset.filter(nivel_revision__in=[6], solicitante='Estudiante')
+        elif user_information.user_type in ['3']:
+            print('Director de departamento')
+            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision=1))
+            if nivel_revision == '1':
+                queryset = queryset.filter(nivel_revision__in=[1], solicitante='Docente')
+            elif nivel_revision == '2':
+                queryset = queryset.filter(nivel_revision__in=[2,3,4], solicitante='Docente')
+            elif nivel_revision == '5':
+                queryset = queryset.filter(nivel_revision__in=[5], solicitante='Docente')
+            elif nivel_revision == '6':
+                queryset = queryset.filter(nivel_revision__in=[6], solicitante='Docente')
+        elif user_information.user_type in ['4']:
+            print('Decano')
+            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[3,4,5]))
+            if nivel_revision == '1':
+                queryset = queryset.filter(nivel_revision__in=[2])
+            elif nivel_revision == '2':
+                queryset = queryset.filter(nivel_revision__in=[3,4])
+            elif nivel_revision == '5':
+                queryset = queryset.filter(nivel_revision__in=[5])
+            elif nivel_revision == '6':
+                queryset = queryset.filter(nivel_revision__in=[6])
+        elif user_information.user_type in ['5']:
+            print('Biblioteca')
+            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[5,6]))
+            if nivel_revision == '1':
+                queryset = queryset.filter(nivel_revision__in=[3])
+            elif nivel_revision == '2':
+                queryset = queryset.filter(nivel_revision__in=[4])
+            elif nivel_revision == '5':
+                queryset = queryset.filter(nivel_revision__in=[5])
+            elif nivel_revision == '6':
+                queryset = queryset.filter(nivel_revision__in=[6])
+        elif user_information.user_type in ['6']:
+            print('Vicerrector')
+            #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[5,6]))
+            if nivel_revision == '1':
+                queryset = queryset.filter(nivel_revision__in=[4])
+            elif nivel_revision == '5':
+                queryset = queryset.filter(nivel_revision__in=[5])
+            elif nivel_revision == '6':
+                queryset = queryset.filter(nivel_revision__in=[6])
+        else: return Response({'mensaje': 'No tiene permisos para ver solicitudes'}, status=status.HTTP_403_FORBIDDEN)
 
         if facultad:
             queryset = queryset.filter(facultad=facultad)
@@ -132,8 +172,8 @@ class SolicitudViewSet(ModelViewSet):
             queryset = queryset.filter(programa_academico=programa)
         if estado:
             queryset = queryset.filter(estado=estado)
-        if nivel_revision:
-            queryset = queryset.filter(nivel_revision=nivel_revision)
+        # if nivel_revision in ['5','6']:
+        #     queryset = queryset.filter(nivel_revision=nivel_revision)
 
         serializer_solicitud = self.get_serializer(queryset, many=True)
         return Response(serializer_solicitud.data)
