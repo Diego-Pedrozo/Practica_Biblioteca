@@ -9,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.response import Response
+import json
 # from datetime import date, datetime
 # from django.db.models import Q
 
@@ -33,16 +34,20 @@ class NotificacionViewSet(ModelViewSet):
     def create(self, request, *args, **kwargs):
         print(self.action)
         try:
-            data_notificacion = request.data
-            #ids_solicitudes = data_notificacion.pop('ids_solicitudes', [])
-            ids_solicitudes = request.data.getlist('ids_solicitudes', [])
+            data_notificacion = request.data.copy()
+            user_biblioteca = UserInformationModel.objects.filter(user_type='5').first()
+            print(user_biblioteca.user.id)
+            if not user_biblioteca:
+                return Response({'mensaje': 'No se encontró un usuario con el rol 5 (Biblioteca)'}, status=status.HTTP_404_NOT_FOUND)
+            
+            data_notificacion['destinario'] = user_biblioteca.user.id
+
+            ids_solicitudes = json.loads(data_notificacion.get('ids_solicitudes', '[]'))
             serializer_notificacion = NotificacionCreateSerializer(data=data_notificacion)
 
             if not ids_solicitudes:
                 return Response({'mensaje': 'Se requiere al menos un ID de solicitud'}, status=status.HTTP_400_BAD_REQUEST)
             
-            #ids_solicitudes = [1,2,3,18]
-
             user = data_notificacion.get('destinario')
             user_information = UserInformationModel.objects.get(user=user)
 
