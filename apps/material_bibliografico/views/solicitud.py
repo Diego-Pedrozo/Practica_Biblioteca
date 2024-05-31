@@ -11,6 +11,9 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 # from datetime import date, datetime
 # from django.db.models import Q
+import openpyxl
+from openpyxl.styles import Font
+from django.http import HttpResponse
 
 
 class SolicitudPublicViewSet(ModelViewSet):
@@ -282,4 +285,86 @@ class SolicitudViewSet(ModelViewSet):
         solicitudes_a_actualizar.update(nivel_revision=nuevo_nivel_revision)
 
         return Response({'mensaje': 'Actualización masiva completada'}, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['get'], url_path='generar_reporte')
+    def generarReporte(self, request):
+        print('generarReporte()') 
+
+        user = self.request.user
+        user_information = UserInformationModel.objects.get(user=user)
+
+        queryset = self.filter_queryset(self.get_queryset())
+
+        if user_information.user_type in ['2']:
+            print('Director plan de estudios')
+            queryset = queryset.filter(nivel_revision=1, solicitante='Estudiante')
+        elif user_information.user_type in ['3']:
+            print('Director de departamento')
+            queryset = queryset.filter(nivel_revision=1, solicitante='Docente')
+        elif user_information.user_type in ['4']:
+            print('Decano')
+            queryset = queryset.filter(nivel_revision=2)
+        elif user_information.user_type in ['5']:
+            print('Biblioteca')
+            queryset = queryset.filter(nivel_revision=3)
+        elif user_information.user_type in ['6']:
+            print('Vicerrector')
+            queryset = queryset.filter(nivel_revision=4)
+        else: return Response({'mensaje': 'No tiene permisos para ver solicitudes'}, status=status.HTTP_403_FORBIDDEN)
+
+        facultad = request.query_params.get('facultad', None)
+        programa = request.query_params.get('programa', None)
+        estado = request.query_params.get('estado', None)
+        nivel_revision = request.query_params.get('nivel_revision', None)
+        fecha_inicio = request.query_params.get('fecha_inicio', None)
+        fecha_fin = request.query_params.get('fecha_fin', None)
+
+        if facultad:
+            queryset = queryset.filter(facultad=facultad)
+        if programa:
+            queryset = queryset.filter(programa_academico=programa)
+        if estado:
+            queryset = queryset.filter(estado=estado)
+        if nivel_revision:
+            queryset = queryset.filter(nivel_revision=nivel_revision)
+
+        # Crear un libro de trabajo y una hoja de cálculo
+        workbook = openpyxl.Workbook()
+        worksheet = workbook.active
+        worksheet.title = 'Reporte de Solicitudes'
+
+        # Definir los encabezados de la hoja de cálculo
+        headers = ['ID', 'Solicitante', 'Facultad', 'Programa Académico', 'Estado', 'Nivel de Revisión']
+        worksheet.append(headers)
+
+        # Aplicar estilo a los encabezados
+        for col in range(1, len(headers) + 1):
+            cell = worksheet.cell(row=1, column=col)
+            cell.font = Font(bold=True)
+
+        # Agregar datos al archivo Excel
+        for solicitud in queryset:
+            row = [
+                solicitud.id,
+                solicitud.solicitante,
+                solicitud.facultad,
+                solicitud.programa_academico,
+                solicitud.estado,
+                solicitud.nivel_revision
+            ]
+            worksheet.append(row)
+
+        # Guardar el archivo Excel en un objeto BytesIO
+        from io import BytesIO
+        excel_file = BytesIO()
+        workbook.save(excel_file)
+        excel_file.seek(0)
+
+        # Preparar la respuesta HTTP con el archivo Excel
+        response = HttpResponse(excel_file.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename=reporte_solicitudes.xlsx'
+        return response
+
+        # serializer_solicitud = self.get_serializer(queryset, many=True)
+        # return Response(serializer_solicitud.data)
 
