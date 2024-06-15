@@ -25,7 +25,7 @@ BASE_DIR = os.path.dirname(PROJECT_DIR)
 SECRET_KEY = 'django-insecure-#o#k=equu=ugkayw$%-z+@2i3)p776*#l3o)!vros(1q3jb3f@'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG=True
+DEBUG=False
 
 ALLOWED_HOSTS = ['*']
 
@@ -223,6 +223,7 @@ CORS_ALLOW_HEADERS = [
 
 CORS_ORIGIN_WHITELIST = [
     'http://localhost:5173',
+    'https://practica-biblioteca-back.onrender.com',
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
