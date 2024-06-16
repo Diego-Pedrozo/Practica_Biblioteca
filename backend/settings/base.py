@@ -223,7 +223,6 @@ CORS_ALLOW_HEADERS = [
 
 CORS_ORIGIN_WHITELIST = [
     'http://localhost:5173',
-    'https://practica-biblioteca-back.onrender.com',
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
