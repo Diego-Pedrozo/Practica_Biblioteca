@@ -14,6 +14,8 @@ from rest_framework.decorators import action
 import openpyxl
 from openpyxl.styles import Font
 from django.http import HttpResponse
+from apps.user.choices import UserFacultad, UserPrograma, NivelRevision
+from apps.material_bibliografico.models.notificacion import NotificacionModel
 
 
 class SolicitudPublicViewSet(ModelViewSet):
@@ -197,6 +199,16 @@ class SolicitudViewSet(ModelViewSet):
                 if serializer_solicitud.is_valid():
                     instance.estado = data_estado.get('estado')
                     instance.save()
+                    
+                    if(instance.estado in ['Existente', 'En tramite']):
+                        facultad = instance.facultad
+                        descripcion = f'El libro {instance.libro.titulo} se encuentra en estado: {instance.estado}.'
+                        NotificacionModel.objects.create(
+                            descripcion=descripcion,
+                            destinario='Decano',
+                            facultad=facultad
+                        )
+
                     return Response({'mensaje': 'Estado actualizado'}, status=status.HTTP_200_OK)
                 else:
                     return Response({'mensaje': 'Estado no valido'}, status=status.HTTP_200_OK)
@@ -297,19 +309,25 @@ class SolicitudViewSet(ModelViewSet):
 
         if user_information.user_type in ['2']:
             print('Director plan de estudios')
-            queryset = queryset.filter(nivel_revision=1, solicitante='Estudiante')
+            queryset_estudiantes = queryset.filter(nivel_revision__in=[1,5,6], solicitante='Estudiante')
         elif user_information.user_type in ['3']:
             print('Director de departamento')
-            queryset = queryset.filter(nivel_revision=1, solicitante='Docente')
+            queryset_docentes = queryset.filter(nivel_revision__in=[1,5,6], solicitante='Docente')
         elif user_information.user_type in ['4']:
             print('Decano')
-            queryset = queryset.filter(nivel_revision=2)
+            #queryset = queryset.filter(nivel_revision=2)
+            queryset_estudiantes = queryset.filter(nivel_revision__in=[2,5,6], solicitante='Estudiante')
+            queryset_docentes = queryset.filter(nivel_revision__in=[2,5,6], solicitante='Docente')
         elif user_information.user_type in ['5']:
             print('Biblioteca')
-            queryset = queryset.filter(nivel_revision=3)
+            #queryset = queryset.filter(nivel_revision=3)
+            queryset_estudiantes = queryset.filter(nivel_revision__in=[3,5,6], solicitante='Estudiante')
+            queryset_docentes = queryset.filter(nivel_revision__in=[3,5,6], solicitante='Docente')
         elif user_information.user_type in ['6']:
             print('Vicerrector')
-            queryset = queryset.filter(nivel_revision=4)
+            #queryset = queryset.filter(nivel_revision=4)
+            queryset_estudiantes = queryset.filter(nivel_revision__in=[4,5,6], solicitante='Estudiante')
+            queryset_docentes = queryset.filter(nivel_revision__in=[4,5,6], solicitante='Docente')
         else: return Response({'mensaje': 'No tiene permisos para ver solicitudes'}, status=status.HTTP_403_FORBIDDEN)
 
         facultad = request.query_params.get('facultad', None)
@@ -320,39 +338,93 @@ class SolicitudViewSet(ModelViewSet):
         fecha_fin = request.query_params.get('fecha_fin', None)
 
         if facultad:
-            queryset = queryset.filter(facultad=facultad)
+            #queryset = queryset.filter(facultad=facultad)
+            queryset_estudiantes = queryset_estudiantes.filter(facultad=facultad)
+            queryset_docentes = queryset_docentes.filter(facultad=facultad)
         if programa:
-            queryset = queryset.filter(programa_academico=programa)
+            #queryset = queryset.filter(programa_academico=programa)
+            queryset_estudiantes = queryset_estudiantes.filter(programa_academico=programa)
+            queryset_docentes = queryset_docentes.filter(faprograma_academicocultad=programa)
         if estado:
-            queryset = queryset.filter(estado=estado)
+            #queryset = queryset.filter(estado=estado)
+            queryset_estudiantes = queryset_estudiantes.filter(estado=estado)
+            queryset_docentes = queryset_docentes.filter(estado=estado)
         if nivel_revision:
-            queryset = queryset.filter(nivel_revision=nivel_revision)
+            #queryset = queryset.filter(nivel_revision=nivel_revision)
+            queryset_estudiantes = queryset_estudiantes.filter(nivel_revision=nivel_revision)
+            queryset_docentes = queryset_docentes.filter(nivel_revision=nivel_revision)
+        if fecha_inicio and fecha_fin:
+            queryset_estudiantes = queryset_estudiantes.filter(fecha_solicitud__range=[fecha_inicio, fecha_fin])
+            queryset_docentes = queryset_docentes.filter(fecha_solicitud__range=[fecha_inicio, fecha_fin])
+        elif fecha_inicio:
+            queryset_estudiantes = queryset_estudiantes.filter(fecha_solicitud__gte=fecha_inicio)
+            queryset_docentes = queryset_docentes.filter(fecha_solicitud__gte=fecha_inicio)
+        elif fecha_fin:
+            queryset_estudiantes = queryset_estudiantes.filter(fecha_solicitud__lte=fecha_fin)
+            queryset_docentes = queryset_docentes.filter(fecha_solicitud__lte=fecha_fin)
+
+        print(fecha_inicio)
+        print(fecha_fin)
+        print(queryset_estudiantes)
+        print(queryset_docentes)
 
         # Crear un libro de trabajo y una hoja de cálculo
         workbook = openpyxl.Workbook()
-        worksheet = workbook.active
-        worksheet.title = 'Reporte de Solicitudes'
+        worksheet_estudiantes  = workbook.active
+        worksheet_estudiantes.title = 'Solicitudes Estudiantes'
+        worksheet_docentes = workbook.create_sheet(title='Solicitudes Docentes')
 
         # Definir los encabezados de la hoja de cálculo
-        headers = ['ID', 'Solicitante', 'Facultad', 'Programa Académico', 'Estado', 'Nivel de Revisión']
-        worksheet.append(headers)
+        headers = ['ID', 'Solicitante', 'Facultad', 'Programa Académico', 'Estado', 'Nivel de Revisión', 'Fecha solicitud', 'Título', 'Autor', 'Editorial', 'Edición', 'Ejemplares', 'Año publicación', 'Idioma']
+        worksheet_estudiantes.append(headers)
+        worksheet_docentes.append(headers)
 
         # Aplicar estilo a los encabezados
         for col in range(1, len(headers) + 1):
-            cell = worksheet.cell(row=1, column=col)
-            cell.font = Font(bold=True)
+            cell_estudiantes = worksheet_estudiantes.cell(row=1, column=col)
+            cell_estudiantes.font = Font(bold=True)
+            cell_docentes = worksheet_docentes.cell(row=1, column=col)
+            cell_docentes.font = Font(bold=True)
 
-        # Agregar datos al archivo Excel
-        for solicitud in queryset:
+         # Agregar datos a la hoja de estudiantes
+        for solicitud in queryset_estudiantes:
             row = [
                 solicitud.id,
                 solicitud.solicitante,
-                solicitud.facultad,
-                solicitud.programa_academico,
+                UserFacultad(solicitud.facultad).label,
+                UserPrograma(solicitud.programa_academico).label,
                 solicitud.estado,
-                solicitud.nivel_revision
+                NivelRevision(solicitud.nivel_revision).label,
+                solicitud.fecha_solicitud,
+                solicitud.libro.titulo,
+                solicitud.libro.autor,
+                solicitud.libro.editorial,
+                solicitud.libro.edicion,
+                solicitud.libro.ejemplares,
+                solicitud.libro.fecha_publicacion,
+                solicitud.libro.idioma,
             ]
-            worksheet.append(row)
+            worksheet_estudiantes.append(row)
+
+        # Agregar datos a la hoja de docentes
+        for solicitud in queryset_docentes:
+            row = [
+                solicitud.id,
+                solicitud.solicitante,
+                UserFacultad(solicitud.facultad).label,
+                UserPrograma(solicitud.programa_academico).label,
+                solicitud.estado,
+                NivelRevision(solicitud.nivel_revision).label,
+                solicitud.fecha_solicitud,
+                solicitud.libro.titulo,
+                solicitud.libro.autor,
+                solicitud.libro.editorial,
+                solicitud.libro.edicion,
+                solicitud.libro.ejemplares,
+                solicitud.libro.fecha_publicacion,
+                solicitud.libro.idioma,
+            ]
+            worksheet_docentes.append(row)
 
         # Guardar el archivo Excel en un objeto BytesIO
         from io import BytesIO
@@ -364,7 +436,4 @@ class SolicitudViewSet(ModelViewSet):
         response = HttpResponse(excel_file.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = 'attachment; filename=reporte_solicitudes.xlsx'
         return response
-
-        # serializer_solicitud = self.get_serializer(queryset, many=True)
-        # return Response(serializer_solicitud.data)
 

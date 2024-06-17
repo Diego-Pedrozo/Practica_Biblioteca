@@ -8,7 +8,7 @@ class UserInformationInline(admin.StackedInline):
     can_delete = False
 
 class UserAdmin(admin.ModelAdmin):
-    list_display = ('username', 'email', 'first_name', 'last_login', 'date_joined', 'information_user_type', 'information_facultad', 'information_programa')
+    list_display = ('username', 'email', 'first_name', 'last_name', 'information_user_type', 'information_facultad', 'information_programa')
     inlines = [UserInformationInline]
 
     def information_user_type(self, obj):

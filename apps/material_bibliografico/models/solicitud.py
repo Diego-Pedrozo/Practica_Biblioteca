@@ -2,7 +2,7 @@ from django.db import models
 from django.utils.translation import gettext as _
 from django.contrib.auth.models import User
 from datetime import date
-from apps.user.choices import UserRanges, UserFacultad, UserPrograma
+from apps.user.choices import UserRanges, UserFacultad, UserPrograma, NivelRevision
 
 class LibroModel(models.Model):
     #info libro
@@ -47,15 +47,7 @@ class SolicitudModel(models.Model):
         ('Sin revisar', 'Sin revisar')
     ]
     estado = models.CharField(max_length=50, verbose_name=_('Estado'), help_text=_(''), choices=ESTADO_CHOICES, default='Sin revisar', null=False, unique=False)
-    NIVEL_CHOICES = [
-        ('1', '1'), #solicitud creada y enviada a directores de departamento y plan de estudios
-        ('2', '2'), #solicitud enviada a decano
-        ('3', '3'), #solicitud enviada a biblioteca
-        ('4', '4'), #solicitud enviada a vicerrector
-        ('5', '5'), #solicitudes aprobadas por vicerrector y enviadas a biblioteca para que actualicen el estado
-        ('6', '6') #solicitudes rechazadas por vicerrector y enviadas a biblioteca para que actualicen el estado
-    ]
-    nivel_revision = models.CharField(max_length=50, verbose_name=_('Nivel de revisión'), help_text=_(''), choices=NIVEL_CHOICES, default='1', null=False, unique=False)
+    nivel_revision = models.CharField(max_length=50, verbose_name=_('Nivel de revisión'), help_text=_(''), choices=NivelRevision.choices, default='1', null=False, unique=False)
 
     def __str__(self) -> str:
         return f'{self.id}, {self.libro}, {self.fecha_solicitud}, {self.estado}, {self.nivel_revision}'

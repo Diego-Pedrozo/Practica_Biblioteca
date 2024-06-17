@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.response import Response
+from ..paginators import CustomPaginator
 # from datetime import date, datetime
 # from django.db.models import Q
 
@@ -17,6 +18,13 @@ class PublicacionPublicViewSet(ModelViewSet):
     serializer_class = PublicacionSerializer
     queryset = PublicacionModel.objects.all()    
     http_method_names = ['get']
+
+    def list(self, request, *args, **kwargs):
+        paginator = CustomPaginator()
+        qs = self.get_queryset().order_by('-id')
+        result_page = paginator.paginate_queryset(qs, request)
+        serializer = self.get_serializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data) 
 
 class PublicacionViewSet(ModelViewSet):
     model = PublicacionModel

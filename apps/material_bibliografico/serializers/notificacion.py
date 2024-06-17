@@ -4,11 +4,11 @@ from apps.user.serializers.user import UserSerializer
 
 
 class NotificacionSerializer(serializers.ModelSerializer):
-    destinario = UserSerializer(many=False, read_only=True)
+    #destinario = UserSerializer(many=False, read_only=True)
 
     class Meta:
         model = NotificacionModel
-        fields = ['id', 'fecha_notificacion', 'descripcion', 'archivo', 'destinario']
+        fields = ['id', 'fecha_notificacion', 'descripcion', 'archivo', 'destinario', 'facultad']
 
 class NotificacionCreateSerializer(serializers.ModelSerializer):
 

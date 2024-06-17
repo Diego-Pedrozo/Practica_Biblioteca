@@ -62,3 +62,10 @@ class UserPrograma(models.TextChoices):
                 return choice[1]
         return None
     
+class NivelRevision(models.TextChoices):
+        CREADA = 1, _('Creada y enviada')  #solicitud creada y enviada a directores de departamento y plan de estudios
+        ENVIADA_DECANO = 2, _('Solicitud enviada a decano') #solicitud enviada a decano
+        ENVIADA_BIBLIOTECA = 3, _('Solicitud enviada a biblioteca') #solicitud enviada a biblioteca
+        ENVIADA_VICERRECTOR = 4, _('Solicitud enviada a vicerrector') #solicitud enviada a vicerrector
+        APROBADA = 5, _('Aprobada') #solicitudes aprobadas por vicerrector y enviadas a biblioteca para que actualicen el estado
+        RECHAZADA = 6, _('Rechazada') #solicitudes rechazadas por vicerrector y enviadas a biblioteca para que actualicen el estado
