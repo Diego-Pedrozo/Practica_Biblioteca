@@ -87,7 +87,8 @@ def create_default_users(sender, **kwargs):
             'password': '1234',
             'information': {
                 "identification": "1151909",
-                "user_type": 4
+                "user_type": 4,
+                "user_facultad": 6,
             }
         },
         {
@@ -98,7 +99,9 @@ def create_default_users(sender, **kwargs):
             'password': '1234',
             'information': {
                 "identification": "1151900",
-                "user_type": 2
+                "user_type": 2,
+                "user_facultad": 6,
+                "user_programa" : 17,
             }
         }
         ,
@@ -110,7 +113,9 @@ def create_default_users(sender, **kwargs):
             'password': '1234',
             'information': {
                 "identification": "1151234",
-                "user_type": 3
+                "user_type": 3,
+                "user_facultad": 6,
+                "user_programa" : 17,
             }
         }
     ]
