@@ -65,7 +65,9 @@ def create_default_users(sender, **kwargs):
             'password': '1234',
             'information': {
                 "identification": "1151898",
-                "user_type": 6
+                "user_type": 6,
+                "user_facultad": '',
+                "user_programa" : '',
             }
         },
         {
@@ -76,7 +78,9 @@ def create_default_users(sender, **kwargs):
             'password': '1234',
             'information': {
                 "identification": "1151891",
-                "user_type": 5
+                "user_type": 5,
+                "user_facultad": '',
+                "user_programa" : '',
             }
         },
         {
@@ -89,6 +93,7 @@ def create_default_users(sender, **kwargs):
                 "identification": "1151909",
                 "user_type": 4,
                 "user_facultad": 6,
+                "user_programa" : '',
             }
         },
         {
@@ -131,6 +136,6 @@ def create_default_users(sender, **kwargs):
 
         if existing_information:
             existing_information.delete()
-            information_instance = information_db.create(user=user_instance, identification=information_data['identification'], user_type=information_data['user_type'])
+            information_instance = information_db.create(user=user_instance, identification=information_data['identification'], user_type=information_data['user_type'], user_facultad=information_data['user_facultad'], user_programa=information_data['user_programa'] )
         else:
             print(f'Información para el usuario {username} ya existe.')
