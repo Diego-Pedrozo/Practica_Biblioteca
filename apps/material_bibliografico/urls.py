@@ -4,6 +4,7 @@ from apps.material_bibliografico.views.solicitud import SolicitudViewSet, Solici
 from apps.material_bibliografico.views.publicacion import PublicacionPublicViewSet, PublicacionViewSet
 from apps.material_bibliografico.views.notificacion import NotificacionViewSet
 from apps.material_bibliografico.views.fechas_limite import FechasLimiteViewSet
+from apps.material_bibliografico.views.propuestas_excel import PropuestasExcelViewSet
 
 app_name = 'material_bibliografico'
 router = routers.DefaultRouter()
@@ -14,6 +15,7 @@ router.register(viewset=PublicacionViewSet, prefix='publicacion', basename='publ
 router.register(viewset=PublicacionPublicViewSet, prefix='publicacion_public', basename='publicacion_public')
 router.register(viewset=NotificacionViewSet, prefix='notificacion', basename='notificacion')
 router.register(viewset=FechasLimiteViewSet, prefix='fechas_limite', basename='fechas_limite')
+router.register(viewset=PropuestasExcelViewSet, prefix='propuestas_excel', basename='propuestas_excel')
 
 
 urlpatterns = [
