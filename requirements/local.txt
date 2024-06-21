@@ -13,4 +13,5 @@ pillow==10.0.1
 Faker==19.11.0
 djangorestframework-simplejwt==5.2.2
 openpyxl
+pandas
 #mysqlclient==2.1.1

@@ -9,14 +9,18 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.response import Response
 from rest_framework.decorators import action
-# from datetime import date, datetime
+from datetime import date, datetime
 # from django.db.models import Q
 import openpyxl
 from openpyxl.styles import Font
 from django.http import HttpResponse
 from apps.user.choices import UserFacultad, UserPrograma, NivelRevision
 from apps.material_bibliografico.models.notificacion import NotificacionModel
-
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+import pandas as pd
+from ..paginators import CustomPaginator, CustomPaginatorFiveItems
+from apps.material_bibliografico.models.fechas_limite import FechasLimiteModel
 
 class SolicitudPublicViewSet(ModelViewSet):
     model = SolicitudModel
@@ -24,10 +28,37 @@ class SolicitudPublicViewSet(ModelViewSet):
     queryset = SolicitudModel.objects.all()    
     http_method_names = ['get', 'post']
 
+
+    def list(self, request, *args, **kwargs):
+        print(self.action)
+
+        paginator = CustomPaginatorFiveItems()
+        
+        email = request.query_params.get('email')
+        if not email:
+            return Response({'mensaje': 'El email es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        qs = self.get_queryset().filter(email_solicitante=email).order_by('-id')
+        result_page = paginator.paginate_queryset(qs, request)
+        serializer = self.get_serializer(result_page, many=True) 
     
+        if qs.exists():
+            return paginator.get_paginated_response(serializer.data)
+        else:
+            return Response({'mensaje': 'No se encontraron solicitudes para ese email'}, status=status.HTTP_404_NOT_FOUND)
+
     def create(self, request, *args, **kwargs):
         print(self.action)
         try:
+            fecha_actual = date.today()
+            fechas_limite = FechasLimiteModel.objects.first()
+
+            if not fechas_limite:
+                return Response({'mensaje': 'No hay fechas límite definidas para aceptar solicitudes'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            if fecha_actual < fechas_limite.fecha_inicio or fecha_actual > fechas_limite.fecha_fin:
+                return Response({'mensaje': 'Las solicitudes no están permitidas en esta fecha'}, status=status.HTTP_400_BAD_REQUEST)
+
             data= request.data
             data_libro = data.get('libro', {})
             data_solicitud = data.get('solicitud', {})
@@ -49,7 +80,66 @@ class SolicitudPublicViewSet(ModelViewSet):
         
         except Exception as e:
             libro.delete()
-            return Response({'mensaje': {str(e)}}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'mensaje': 'Error al procesar la petición', 'info': {str(e)}}, status=status.HTTP_400_BAD_REQUEST)
+        
+    @action(detail=False, methods=['post'], url_path='cargar_varias')
+    def variasSolicitudes(self, request, *args, **kwargs):
+        print("variasSolicitudes()")
+        try:
+            fecha_actual = date.today()
+            fechas_limite = FechasLimiteModel.objects.first()
+
+            if not fechas_limite:
+                return Response({'mensaje': 'No hay fechas límite definidas para aceptar solicitudes'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            if fecha_actual < fechas_limite.fecha_inicio or fecha_actual > fechas_limite.fecha_fin:
+                return Response({'mensaje': 'Las solicitudes no están permitidas en esta fecha'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            file = request.FILES['file']
+            facultad = request.data.get('facultad')
+            programa_academico = request.data.get('programa_academico')
+            solicitante = request.data.get('solicitante')
+            emailSolicitante = request.data.get('email_solicitante')
+
+            file_name = default_storage.save(file.name, ContentFile(file.read()))
+            file_path = default_storage.path(file_name)
+
+            df = pd.read_excel(file_path)
+
+            for index, row in df.iterrows():
+                data_libro = {
+                    "titulo": row['Título'],
+                    "autor": row['Autor'],
+                    "editorial": row['Editorial'],
+                    "edicion": row['Edición'],
+                    "ejemplares": row['Ejemplares'],
+                    "fecha_publicacion": row['Año publicación'],
+                    "idioma": row['Idioma (Ingles o Español)']
+                }
+                serializer_libro = LibroSerializer(data=data_libro)
+                if serializer_libro.is_valid():
+                    libro = serializer_libro.save()
+                else:
+                    return Response({'mensaje': 'Error en los datos del libro', 'info': serializer_libro.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+                data_solicitud = {
+                    "libro": libro.id,
+                    "facultad": facultad,
+                    "programa_academico": programa_academico,
+                    "solicitante": solicitante,
+                    "email_solicitante": emailSolicitante
+                }
+                serializer_solicitud = SolicitudCreateSerializer(data=data_solicitud)
+                if serializer_solicitud.is_valid():
+                    serializer_solicitud.save()
+                else:
+                    libro.delete()
+                    return Response({'mensaje': 'Error en los datos de la solicitud', 'info': serializer_solicitud.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response({'mensaje': 'Solicitudes creadas correctamente'}, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({'mensaje': 'Error al procesar la petición', 'info': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class SolicitudViewSet(ModelViewSet):
     model = SolicitudModel
@@ -109,66 +199,69 @@ class SolicitudViewSet(ModelViewSet):
         print('solicitudesRevisadas()')
         user = self.request.user
         user_information = UserInformationModel.objects.get(user=user)
+        paginator = CustomPaginator()
 
         queryset = self.filter_queryset(self.get_queryset())
         facultad = request.query_params.get('facultad', None)
         programa = request.query_params.get('programa', None)
         estado = request.query_params.get('estado', None)
         nivel_revision = request.query_params.get('nivel_revision', None)
+        fecha_inicio = request.query_params.get('fecha_inicio', None)
+        fecha_fin = request.query_params.get('fecha_fin', None)
 
         if user_information.user_type in ['2']:
             print('Director plan de estudios')
             #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[2,3,4,5]))
             if nivel_revision == '1':
-                queryset = queryset.filter(nivel_revision__in=[1], solicitante='Estudiante')
+                queryset = queryset.filter(nivel_revision__in=[1], solicitante='Estudiante').order_by('id')
             elif nivel_revision == '2':
-                queryset = queryset.filter(nivel_revision__in=[2,3,4], solicitante='Estudiante')
+                queryset = queryset.filter(nivel_revision__in=[2,3,4], solicitante='Estudiante').order_by('id')
             elif nivel_revision == '5':
-                queryset = queryset.filter(nivel_revision__in=[5], solicitante='Estudiante')
+                queryset = queryset.filter(nivel_revision__in=[5], solicitante='Estudiante').order_by('id')
             elif nivel_revision == '6':
-                queryset = queryset.filter(nivel_revision__in=[6], solicitante='Estudiante')
+                queryset = queryset.filter(nivel_revision__in=[6], solicitante='Estudiante').order_by('id')
         elif user_information.user_type in ['3']:
             print('Director de departamento')
             #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision=1))
             if nivel_revision == '1':
-                queryset = queryset.filter(nivel_revision__in=[1], solicitante='Docente')
+                queryset = queryset.filter(nivel_revision__in=[1], solicitante='Docente').order_by('id')
             elif nivel_revision == '2':
-                queryset = queryset.filter(nivel_revision__in=[2,3,4], solicitante='Docente')
+                queryset = queryset.filter(nivel_revision__in=[2,3,4], solicitante='Docente').order_by('id')
             elif nivel_revision == '5':
-                queryset = queryset.filter(nivel_revision__in=[5], solicitante='Docente')
+                queryset = queryset.filter(nivel_revision__in=[5], solicitante='Docente').order_by('id')
             elif nivel_revision == '6':
-                queryset = queryset.filter(nivel_revision__in=[6], solicitante='Docente')
+                queryset = queryset.filter(nivel_revision__in=[6], solicitante='Docente').order_by('id')
         elif user_information.user_type in ['4']:
             print('Decano')
             #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[3,4,5]))
             if nivel_revision == '1':
-                queryset = queryset.filter(nivel_revision__in=[2])
+                queryset = queryset.filter(nivel_revision__in=[2]).order_by('id')
             elif nivel_revision == '2':
-                queryset = queryset.filter(nivel_revision__in=[3,4])
+                queryset = queryset.filter(nivel_revision__in=[3,4]).order_by('id')
             elif nivel_revision == '5':
-                queryset = queryset.filter(nivel_revision__in=[5])
+                queryset = queryset.filter(nivel_revision__in=[5]).order_by('id')
             elif nivel_revision == '6':
-                queryset = queryset.filter(nivel_revision__in=[6])
+                queryset = queryset.filter(nivel_revision__in=[6]).order_by('id')
         elif user_information.user_type in ['5']:
             print('Biblioteca')
             #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[5,6]))
             if nivel_revision == '1':
-                queryset = queryset.filter(nivel_revision__in=[3])
+                queryset = queryset.filter(nivel_revision__in=[3]).order_by('id')
             elif nivel_revision == '2':
-                queryset = queryset.filter(nivel_revision__in=[4])
+                queryset = queryset.filter(nivel_revision__in=[4]).order_by('id')
             elif nivel_revision == '5':
-                queryset = queryset.filter(nivel_revision__in=[5])
+                queryset = queryset.filter(nivel_revision__in=[5]).order_by('id')
             elif nivel_revision == '6':
-                queryset = queryset.filter(nivel_revision__in=[6])
+                queryset = queryset.filter(nivel_revision__in=[6]).order_by('id')
         elif user_information.user_type in ['6']:
             print('Vicerrector')
             #queryset = self.filter_queryset(self.get_queryset().filter(nivel_revision__in=[5,6]))
             if nivel_revision == '1':
-                queryset = queryset.filter(nivel_revision__in=[4])
+                queryset = queryset.filter(nivel_revision__in=[4]).order_by('id')
             elif nivel_revision == '5':
-                queryset = queryset.filter(nivel_revision__in=[5])
+                queryset = queryset.filter(nivel_revision__in=[5]).order_by('id')
             elif nivel_revision == '6':
-                queryset = queryset.filter(nivel_revision__in=[6])
+                queryset = queryset.filter(nivel_revision__in=[6]).order_by('id')
         else: return Response({'mensaje': 'No tiene permisos para ver solicitudes'}, status=status.HTTP_403_FORBIDDEN)
 
         if facultad:
@@ -177,11 +270,20 @@ class SolicitudViewSet(ModelViewSet):
             queryset = queryset.filter(programa_academico=programa)
         if estado:
             queryset = queryset.filter(estado=estado)
+        if fecha_inicio and fecha_fin:
+            queryset = queryset.filter(fecha_solicitud__range=[fecha_inicio, fecha_fin])
+        elif fecha_inicio:
+            queryset = queryset.filter(fecha_solicitud__gte=fecha_inicio)
+        elif fecha_fin:
+            queryset = queryset.filter(fecha_solicitud__lte=fecha_fin)
         # if nivel_revision in ['5','6']:
         #     queryset = queryset.filter(nivel_revision=nivel_revision)
 
-        serializer_solicitud = self.get_serializer(queryset, many=True)
-        return Response(serializer_solicitud.data)
+        result_page = paginator.paginate_queryset(queryset, request)
+        serializer_solicitud = self.get_serializer(result_page, many=True)
+        # serializer_solicitud = self.get_serializer(queryset, many=True)
+        # return Response(serializer_solicitud.data)
+        return paginator.get_paginated_response(serializer_solicitud.data)
     
     def partial_update(self, request, *args, **kwargs):
         print(self.action)
@@ -254,7 +356,7 @@ class SolicitudViewSet(ModelViewSet):
             nuevo_nivel_revision = '3'
         elif user_information.user_type in ['5']:
             solicitudes_a_actualizar = SolicitudModel.objects.filter(id__in=ids_solicitudes, nivel_revision='3').values_list('id', flat=True)
-            nuevo_nivel_revision = '4'
+            nuevo_nivel_revision = '5'
         elif user_information.user_type in ['6']:
             solicitudes_a_actualizar = SolicitudModel.objects.filter(id__in=ids_solicitudes, nivel_revision='4').values_list('id', flat=True)
             nuevo_nivel_revision = '5'
@@ -266,7 +368,7 @@ class SolicitudViewSet(ModelViewSet):
         solicitudes_a_actualizar = SolicitudModel.objects.filter(id__in=solicitudes_a_actualizar)
         solicitudes_a_actualizar.update(nivel_revision=nuevo_nivel_revision)
 
-        return Response({'mensaje': 'Actualización masiva completada'}, status=status.HTTP_200_OK)
+        return Response({'mensaje': 'Solicitudes enviadas'}, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['post'], url_path='rechazar_solicitudes')
     def solicitudesRechazadas(self, request):
@@ -280,11 +382,10 @@ class SolicitudViewSet(ModelViewSet):
         if not ids_solicitudes:
             return Response({'mensaje': 'Se requiere al menos un ID de solicitud'}, status=status.HTTP_400_BAD_REQUEST)
         
-        if user_information.user_type not in ['6']:
+        if user_information.user_type not in ['5']:
                 return Response({'mensaje': 'No tiene permisos para cambiar el estado de la solicitud'}, status=status.HTTP_403_FORBIDDEN)
 
-        
-        solicitudes_a_actualizar = SolicitudModel.objects.filter(id__in=ids_solicitudes, nivel_revision='4').values_list('id', flat=True)
+        solicitudes_a_actualizar = SolicitudModel.objects.filter(id__in=ids_solicitudes, nivel_revision='3').values_list('id', flat=True)
         nuevo_nivel_revision = '6'
             
         if nuevo_nivel_revision is None:
@@ -296,7 +397,7 @@ class SolicitudViewSet(ModelViewSet):
         solicitudes_a_actualizar = SolicitudModel.objects.filter(id__in=solicitudes_a_actualizar)
         solicitudes_a_actualizar.update(nivel_revision=nuevo_nivel_revision)
 
-        return Response({'mensaje': 'Actualización masiva completada'}, status=status.HTTP_200_OK)
+        return Response({'mensaje': 'Solicitudes rechazadas'}, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['get'], url_path='generar_reporte')
     def generarReporte(self, request):
@@ -339,34 +440,43 @@ class SolicitudViewSet(ModelViewSet):
 
         if facultad:
             #queryset = queryset.filter(facultad=facultad)
-            queryset_estudiantes = queryset_estudiantes.filter(facultad=facultad)
-            queryset_docentes = queryset_docentes.filter(facultad=facultad)
+            if user_information.user_type in ['2', '4', '5']:
+                queryset_estudiantes = queryset_estudiantes.filter(facultad=facultad)
+            if user_information.user_type in ['3', '4', '5']:
+                queryset_docentes = queryset_docentes.filter(facultad=facultad)
         if programa:
             #queryset = queryset.filter(programa_academico=programa)
-            queryset_estudiantes = queryset_estudiantes.filter(programa_academico=programa)
-            queryset_docentes = queryset_docentes.filter(faprograma_academicocultad=programa)
+            if user_information.user_type in ['2', '4', '5']:
+                queryset_estudiantes = queryset_estudiantes.filter(programa_academico=programa)
+            if user_information.user_type in ['3', '4', '5']:
+                queryset_docentes = queryset_docentes.filter(programa_academico=programa)
         if estado:
             #queryset = queryset.filter(estado=estado)
-            queryset_estudiantes = queryset_estudiantes.filter(estado=estado)
-            queryset_docentes = queryset_docentes.filter(estado=estado)
+            if user_information.user_type in ['2', '4', '5']:
+                queryset_estudiantes = queryset_estudiantes.filter(estado=estado)
+            if user_information.user_type in ['3', '4', '5']:
+                queryset_docentes = queryset_docentes.filter(estado=estado)
         if nivel_revision:
             #queryset = queryset.filter(nivel_revision=nivel_revision)
-            queryset_estudiantes = queryset_estudiantes.filter(nivel_revision=nivel_revision)
-            queryset_docentes = queryset_docentes.filter(nivel_revision=nivel_revision)
+            if user_information.user_type in ['2', '4', '5']:
+                queryset_estudiantes = queryset_estudiantes.filter(nivel_revision=nivel_revision)
+            if user_information.user_type in ['3', '4', '5']:
+                queryset_docentes = queryset_docentes.filter(nivel_revision=nivel_revision)
         if fecha_inicio and fecha_fin:
-            queryset_estudiantes = queryset_estudiantes.filter(fecha_solicitud__range=[fecha_inicio, fecha_fin])
-            queryset_docentes = queryset_docentes.filter(fecha_solicitud__range=[fecha_inicio, fecha_fin])
+            if user_information.user_type in ['2', '4', '5']:
+                queryset_estudiantes = queryset_estudiantes.filter(fecha_solicitud__range=[fecha_inicio, fecha_fin])
+            if user_information.user_type in ['3', '4', '5']:
+                queryset_docentes = queryset_docentes.filter(fecha_solicitud__range=[fecha_inicio, fecha_fin])
         elif fecha_inicio:
-            queryset_estudiantes = queryset_estudiantes.filter(fecha_solicitud__gte=fecha_inicio)
-            queryset_docentes = queryset_docentes.filter(fecha_solicitud__gte=fecha_inicio)
+            if user_information.user_type in ['2', '4', '5']:
+                queryset_estudiantes = queryset_estudiantes.filter(fecha_solicitud__gte=fecha_inicio)
+            if user_information.user_type in ['3', '4', '5']:
+                queryset_docentes = queryset_docentes.filter(fecha_solicitud__gte=fecha_inicio)
         elif fecha_fin:
-            queryset_estudiantes = queryset_estudiantes.filter(fecha_solicitud__lte=fecha_fin)
-            queryset_docentes = queryset_docentes.filter(fecha_solicitud__lte=fecha_fin)
-
-        print(fecha_inicio)
-        print(fecha_fin)
-        print(queryset_estudiantes)
-        print(queryset_docentes)
+            if user_information.user_type in ['2', '4', '5']:
+                queryset_estudiantes = queryset_estudiantes.filter(fecha_solicitud__lte=fecha_fin)
+            if user_information.user_type in ['3', '4', '5']:
+                queryset_docentes = queryset_docentes.filter(fecha_solicitud__lte=fecha_fin)
 
         # Crear un libro de trabajo y una hoja de cálculo
         workbook = openpyxl.Workbook()
@@ -387,44 +497,46 @@ class SolicitudViewSet(ModelViewSet):
             cell_docentes.font = Font(bold=True)
 
          # Agregar datos a la hoja de estudiantes
-        for solicitud in queryset_estudiantes:
-            row = [
-                solicitud.id,
-                solicitud.solicitante,
-                UserFacultad(solicitud.facultad).label,
-                UserPrograma(solicitud.programa_academico).label,
-                solicitud.estado,
-                NivelRevision(solicitud.nivel_revision).label,
-                solicitud.fecha_solicitud,
-                solicitud.libro.titulo,
-                solicitud.libro.autor,
-                solicitud.libro.editorial,
-                solicitud.libro.edicion,
-                solicitud.libro.ejemplares,
-                solicitud.libro.fecha_publicacion,
-                solicitud.libro.idioma,
-            ]
-            worksheet_estudiantes.append(row)
+        if user_information.user_type in ['2', '4', '5']:
+            for solicitud in queryset_estudiantes:
+                row = [
+                    solicitud.id,
+                    solicitud.solicitante,
+                    UserFacultad(solicitud.facultad).label,
+                    UserPrograma(solicitud.programa_academico).label,
+                    solicitud.estado,
+                    NivelRevision(solicitud.nivel_revision).label,
+                    solicitud.fecha_solicitud,
+                    solicitud.libro.titulo,
+                    solicitud.libro.autor,
+                    solicitud.libro.editorial,
+                    solicitud.libro.edicion,
+                    solicitud.libro.ejemplares,
+                    solicitud.libro.fecha_publicacion,
+                    solicitud.libro.idioma,
+                ]
+                worksheet_estudiantes.append(row)
 
         # Agregar datos a la hoja de docentes
-        for solicitud in queryset_docentes:
-            row = [
-                solicitud.id,
-                solicitud.solicitante,
-                UserFacultad(solicitud.facultad).label,
-                UserPrograma(solicitud.programa_academico).label,
-                solicitud.estado,
-                NivelRevision(solicitud.nivel_revision).label,
-                solicitud.fecha_solicitud,
-                solicitud.libro.titulo,
-                solicitud.libro.autor,
-                solicitud.libro.editorial,
-                solicitud.libro.edicion,
-                solicitud.libro.ejemplares,
-                solicitud.libro.fecha_publicacion,
-                solicitud.libro.idioma,
-            ]
-            worksheet_docentes.append(row)
+        if user_information.user_type in ['3', '4', '5']:
+            for solicitud in queryset_docentes:
+                row = [
+                    solicitud.id,
+                    solicitud.solicitante,
+                    UserFacultad(solicitud.facultad).label,
+                    UserPrograma(solicitud.programa_academico).label,
+                    solicitud.estado,
+                    NivelRevision(solicitud.nivel_revision).label,
+                    solicitud.fecha_solicitud,
+                    solicitud.libro.titulo,
+                    solicitud.libro.autor,
+                    solicitud.libro.editorial,
+                    solicitud.libro.edicion,
+                    solicitud.libro.ejemplares,
+                    solicitud.libro.fecha_publicacion,
+                    solicitud.libro.idioma,
+                ]
+                worksheet_docentes.append(row)
 
         # Guardar el archivo Excel en un objeto BytesIO
         from io import BytesIO

@@ -57,19 +57,19 @@ def create_default_users(sender, **kwargs):
 
     # Lista de usuarios a crear
     users_to_create = [
-        {
-            'username': 'vicerrector@yopmail.com',
-            'email': 'vicerrector@yopmail.com',
-            'first_name': 'Diego',
-            'last_name': 'Pedrozo',
-            'password': '1234',
-            'information': {
-                "identification": "1151898",
-                "user_type": 6,
-                "user_facultad": '',
-                "user_programa" : '',
-            }
-        },
+        # {
+        #     'username': 'vicerrector@yopmail.com',
+        #     'email': 'vicerrector@yopmail.com',
+        #     'first_name': 'Diego',
+        #     'last_name': 'Pedrozo',
+        #     'password': '1234',
+        #     'information': {
+        #         "identification": "1151898",
+        #         "user_type": 6,
+        #         "user_facultad": '',
+        #         "user_programa" : '',
+        #     }
+        # },
         {
             'username': 'biblioteca@yopmail.com',
             'email': 'biblioteca@yopmail.com',

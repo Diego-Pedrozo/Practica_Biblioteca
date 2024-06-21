@@ -7,7 +7,7 @@ class UserRanges(models.TextChoices):
     DIRECTOR_DEPARTAMENTO = 3, _('Director de departamento')
     DECANO = 4, _('Decano')
     BIBLIOTECA = 5, _('Biblioteca')
-    VICERRECTOR = 6, _('Vicerrector')
+    #VICERRECTOR = 6, _('Vicerrector')
 
     @classmethod
     def get_name(cls, value):

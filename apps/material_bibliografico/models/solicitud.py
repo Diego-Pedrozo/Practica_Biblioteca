@@ -6,8 +6,8 @@ from apps.user.choices import UserRanges, UserFacultad, UserPrograma, NivelRevis
 
 class LibroModel(models.Model):
     #info libro
-    titulo = models.CharField(max_length=50, verbose_name=_('Título'), help_text=_(''), null=False, unique=False)
-    autor = models.CharField(max_length=50, verbose_name=_('Autor/es'), help_text=_(''), null=False, unique=False)
+    titulo = models.CharField(max_length=250, verbose_name=_('Título'), help_text=_(''), null=False, unique=False)
+    autor = models.CharField(max_length=150, verbose_name=_('Autor/es'), help_text=_(''), null=False, unique=False)
     editorial = models.CharField(max_length=50, verbose_name=_('Editorial'), help_text=_(''), null=False, unique=False)
     edicion = models.CharField(max_length=50, verbose_name=_('Edición'), help_text=_(''), null=False, unique=False)
     ejemplares = models.IntegerField(verbose_name=_('Ejemplares'), help_text=_(''), null=False, unique=False)
@@ -38,6 +38,7 @@ class SolicitudModel(models.Model):
         ('Docente', 'Docente'),
     ] 
     solicitante = models.CharField(max_length=50, verbose_name=_('Solicitante'), help_text=_(''), choices=SOLICITANTE_CHOICES, default='', null=False, unique=False)
+    email_solicitante = models.EmailField(verbose_name=_('Email solicitante'), help_text=_(''), default='', null=False, unique=False)
 
     #info verificacion
     ESTADO_CHOICES = [
